@@ -7,9 +7,9 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import sys
-import urllib.error
 import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
@@ -48,33 +48,34 @@ def resolve_csv_url() -> str:
     raise RuntimeError("CSV resource not found in CKAN dataset")
 
 
-def fetch_csv(url: str, etag: str | None = None) -> tuple[str, str] | None:
-    """CSV をダウンロードする。
-
-    304 Not Modified の場合は None を返す。
-    200 OK の場合は (csv_text, new_etag) を返す。
-    """
+def fetch_csv(url: str) -> str:
+    """CSV をダウンロードし UTF-8 テキストとして返す。"""
     req = urllib.request.Request(url)
-    if etag:
-        req.add_header("If-None-Match", etag)
+    with urllib.request.urlopen(req, timeout=60) as resp:
+        raw = resp.read()
+    return raw.decode("cp932")
 
+
+def _content_hash(text: str) -> str:
+    """テキストの SHA-256 ハッシュを返す。"""
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+def _load_content_hash(data_dir: Path = DATA_DIR) -> str | None:
+    """metadata.json から前回の content_hash を読み込む。"""
+    meta_path = data_dir / "metadata.json"
+    if not meta_path.exists():
+        return None
     try:
-        with urllib.request.urlopen(req, timeout=60) as resp:
-            raw = resp.read()
-            new_etag = resp.headers.get("ETag", "")
-            # Shift_JIS (CP932) → UTF-8
-            csv_text = raw.decode("cp932")
-            return csv_text, new_etag
-    except urllib.error.HTTPError as e:
-        if e.code == 304:
-            return None
-        raise
+        meta = json.loads(meta_path.read_text(encoding="utf-8"))
+        return meta.get("content_hash")
+    except (json.JSONDecodeError, OSError):
+        return None
 
 
 def save_data(
     csv_text: str,
     url: str,
-    etag: str,
     data_dir: Path = DATA_DIR,
 ) -> None:
     """CSV と metadata.json を書き出す。"""
@@ -88,26 +89,13 @@ def save_data(
         "source_url": url,
         "dataset_id": DATASET_ID,
         "catalog_api": CATALOG_API,
+        "content_hash": _content_hash(csv_text),
     }
-    if etag:
-        metadata["etag"] = etag
     metadata_path = data_dir / "metadata.json"
     metadata_path.write_text(
         json.dumps(metadata, ensure_ascii=False, indent=2) + "\n",
         encoding="utf-8",
     )
-
-
-def _load_etag(data_dir: Path = DATA_DIR) -> str | None:
-    """metadata.json から前回の ETag を読み込む。"""
-    meta_path = data_dir / "metadata.json"
-    if not meta_path.exists():
-        return None
-    try:
-        meta = json.loads(meta_path.read_text(encoding="utf-8"))
-        return meta.get("etag")
-    except (json.JSONDecodeError, OSError):
-        return None
 
 
 def cmd_fetch(args: argparse.Namespace) -> None:
@@ -116,23 +104,17 @@ def cmd_fetch(args: argparse.Namespace) -> None:
     csv_url = resolve_csv_url()
     print(f"  URL: {csv_url}")
 
-    etag = _load_etag()
-    if etag:
-        print(f"  前回の ETag: {etag}")
-
     print("CSV をダウンロード中...")
-    result = fetch_csv(csv_url, etag=etag)
+    csv_text = fetch_csv(csv_url)
+    print(f"  取得完了 ({len(csv_text)} 文字)")
 
-    if result is None:
-        print("  304 Not Modified — キャッシュは最新です。更新不要。")
+    new_hash = _content_hash(csv_text)
+    old_hash = _load_content_hash()
+    if old_hash and old_hash == new_hash:
+        print("  コンテンツに変更なし。更新スキップ。")
         return
 
-    csv_text, new_etag = result
-    print(f"  取得完了 ({len(csv_text)} 文字)")
-    if new_etag:
-        print(f"  ETag: {new_etag}")
-
-    save_data(csv_text, csv_url, new_etag)
+    save_data(csv_text, csv_url)
     print(f"  保存先: {CSV_FILE}")
     print(f"  メタデータ: {METADATA_FILE}")
     print("完了。")

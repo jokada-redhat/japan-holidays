@@ -43,19 +43,23 @@ python generate.py generate  # JSON ファイルを生成
 
 | 設定項目 | 説明 |
 |---|---|
-| `endpoints` セクション | 各エンドポイント（decade, yearly, last_n_years, thisyear, nextyear）の有効/無効を制御 |
-| `decade.start` | 年代別ファイルの生成開始年代（例: 2000）|
-| `yearly.start` | 年別ファイルの生成開始年（例: 2020）|
-| `last_n_years` | 直近年数リストの定義（例: [3, 5]）|
+| `endpoints.all` | 全祝日データの生成（true/false） |
+| `endpoints.decade.enabled` | 年代別ファイルの生成（true/false） |
+| `endpoints.decade.start` | 生成開始年代（例: 2000） |
+| `endpoints.yearly.enabled` | 年別ファイルの生成（true/false） |
+| `endpoints.yearly.start` | 生成開始年（例: 2020） |
+| `endpoints.last_n_years` | 直近年数リスト（例: [3, 5]） |
+| `endpoints.thisyear` | 今年ファイルの生成（true/false） |
+| `endpoints.nextyear` | 来年ファイルの生成（true/false） |
 
 ## API エンドポイント一覧
 
 | パス | 内容 |
 |---|---|
 | `/api/v1/all.json` | 全祝日データ |
-| `/api/v1/{decade}s.json` | 年代別（2000s, 2010s, 2020s）config.yaml で範囲設定可 |
-| `/api/v1/{year}.json` | 年別（2020, 2021, ...）config.yaml で開始年設定可 |
-| `/api/v1/last{N}years.json` | 直近 N 年＋来年（config.yaml で定義、デフォルト: 3年, 5年） |
+| `/api/v1/{decade}s.json` | 年代別（2000s, 2010s, 2020s など）。`decade.start` で開始年代を設定 |
+| `/api/v1/{year}.json` | 年別（2020, 2021, ... データ中の最終年まで）。`yearly.start` で開始年を設定 |
+| `/api/v1/last{N}years.json` | 今年を含む直近 N 年（config.yaml で定義、デフォルト: 3年, 5年） |
 | `/api/v1/thisyear.json` | 今年のみ |
 | `/api/v1/nextyear.json` | 来年のみ |
 

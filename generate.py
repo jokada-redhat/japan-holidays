@@ -40,7 +40,10 @@ def resolve_csv_url() -> str:
     resources = body["result"]["resources"]
     for r in resources:
         if r.get("format", "").upper() == "CSV":
-            return r["url"]
+            url = r["url"]
+            if not url.startswith(("http://", "https://")):
+                raise ValueError(f"Invalid URL scheme: {url}")
+            return url
 
     raise RuntimeError("CSV resource not found in CKAN dataset")
 
@@ -85,8 +88,9 @@ def save_data(
         "source_url": url,
         "dataset_id": DATASET_ID,
         "catalog_api": CATALOG_API,
-        "etag": etag,
     }
+    if etag:
+        metadata["etag"] = etag
     metadata_path = data_dir / "metadata.json"
     metadata_path.write_text(
         json.dumps(metadata, ensure_ascii=False, indent=2) + "\n",

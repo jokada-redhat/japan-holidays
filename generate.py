@@ -11,6 +11,7 @@ from __future__ import annotations
 import argparse
 import csv
 import hashlib
+import html
 import io
 import json
 import sys
@@ -150,7 +151,11 @@ def parse_holidays(csv_text: str) -> list[dict]:
         parts = raw_date.split("/")
         if len(parts) != 3:
             continue
-        y, m, d = int(parts[0]), int(parts[1]), int(parts[2])
+        try:
+            y, m, d = int(parts[0]), int(parts[1]), int(parts[2])
+            date(y, m, d)
+        except (ValueError, OverflowError):
+            continue
         iso_date = f"{y:04d}-{m:02d}-{d:02d}"
         holidays.append({"date": iso_date, "name": name})
     return holidays
@@ -214,14 +219,16 @@ def generate_index_html(output_dir: Path) -> None:
     json_files: list[str] = []
     if api_dir.exists():
         json_files = sorted(
-            f.name for f in api_dir.iterdir() if f.suffix == ".json"
+            f.name for f in api_dir.iterdir()
+            if f.is_file() and not f.is_symlink() and f.suffix == ".json"
         )
 
     items = "\n".join(
-        f'        <li><a href="api/v1/{f}">{f}</a></li>' for f in json_files
+        f'        <li><a href="api/v1/{html.escape(f)}">{html.escape(f)}</a></li>'
+        for f in json_files
     )
 
-    html = f"""\
+    page = f"""\
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -251,15 +258,18 @@ def generate_index_html(output_dir: Path) -> None:
 </html>
 """
     output_dir.mkdir(parents=True, exist_ok=True)
-    (output_dir / "index.html").write_text(html, encoding="utf-8")
+    (output_dir / "index.html").write_text(page, encoding="utf-8")
 
 
 def load_config(config_path: Path = CONFIG_FILE) -> dict:
     """config.yaml を読み込んで辞書として返す。"""
     if not config_path.exists():
         return {}
-    with open(config_path, encoding="utf-8") as f:
-        return yaml.safe_load(f) or {}
+    try:
+        with open(config_path, encoding="utf-8") as f:
+            return yaml.safe_load(f) or {}
+    except (yaml.YAMLError, OSError):
+        return {}
 
 
 def cmd_generate(args: argparse.Namespace) -> None:

@@ -102,6 +102,17 @@ class TestParseHolidays:
         result = parse_holidays(csv_short)
         assert len(result) == 1
 
+    def test_parse_holidays_leap_year(self):
+        """うるう年の 2/29 は有効、非うるう年は無効"""
+        csv_leap = textwrap.dedent("""\
+            国民の祝日・休日月日,国民の祝日・休日名称
+            2024/2/29,うるう日
+            2023/2/29,無効日
+        """)
+        result = parse_holidays(csv_leap)
+        assert len(result) == 1
+        assert result[0]["date"] == "2024-02-29"
+
     def test_parse_holidays_empty_fields(self):
         """日付や名前が空の行のスキップ"""
         csv_empty_fields = textwrap.dedent("""\
@@ -165,6 +176,11 @@ class TestFilterHolidays:
         result = filter_holidays(holidays)
         assert len(result) == len(holidays)
 
+    def test_filter_holidays_start_greater_than_end(self, holidays):
+        """start > end: 空リストを返す"""
+        result = filter_holidays(holidays, start=2025, end=2023)
+        assert result == []
+
 
 # ---------------------------------------------------------------------------
 # _unique_years テスト
@@ -175,6 +191,11 @@ class TestUniqueYears:
     @pytest.fixture()
     def holidays(self):
         return parse_holidays(SAMPLE_CSV_MULTI_YEAR)
+
+    def test_unique_years_empty(self):
+        """空の祝日リスト"""
+        result = _unique_years([])
+        assert result == []
 
     def test_unique_years(self, holidays):
         """年の抽出"""
@@ -311,6 +332,23 @@ class TestBuildJobs:
         assert filename == "thisyear.json"
         assert all(_holiday_year(h) == 2024 for h in filtered)
 
+    def test_build_jobs_last_n_years_invalid(self, holidays, capsys):
+        """last_n_years に 0 や負数が含まれる場合、警告してスキップ"""
+        today = date(2024, 6, 1)
+        endpoints = {
+            "all": False,
+            "decade": {"enabled": False},
+            "yearly": {"enabled": False},
+            "last_n_years": [3, 0, -5],
+            "thisyear": False,
+            "nextyear": False,
+        }
+        jobs = _build_jobs(holidays, today, endpoints, {})
+        assert len(jobs) == 1
+        assert jobs[0][0] == "last3years.json"
+        captured = capsys.readouterr()
+        assert "警告" in captured.out
+
     def test_build_jobs_nextyear_filter(self, holidays):
         """nextyear は翌年のみ含む"""
         today = date(2024, 6, 1)
@@ -417,6 +455,8 @@ class TestWriteJson:
         assert data["count"] == 2
         assert len(data["holidays"]) == 2
         assert data["holidays"][0]["name"] == "元日"
+        assert data["holidays"][0]["date"] == "2024-01-01"
+        assert data["holidays"][1]["date"] == "2024-01-08"
         assert "source" in data
         assert "generated_at" in data
 

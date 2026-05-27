@@ -184,6 +184,12 @@ def filter_this_year(holidays: list[dict], today: date) -> list[dict]:
     return [h for h in holidays if int(h["date"][:4]) == year]
 
 
+def filter_next_year(holidays: list[dict], today: date) -> list[dict]:
+    """来年の祝日のみ返す。"""
+    year = today.year + 1
+    return [h for h in holidays if int(h["date"][:4]) == year]
+
+
 def get_decades(holidays: list[dict]) -> list[int]:
     """データから年代（10年単位の開始年）を自動抽出し、ソート済みリストで返す。"""
     decades: set[int] = set()
@@ -319,6 +325,13 @@ def cmd_generate(args: argparse.Namespace) -> None:
     meta_this = {"source": SOURCE_URL, "generated_at": generated_at, "filter": f"thisyear ({today.year})"}
     write_json(output_dir / "thisyear.json", filtered, meta_this)
     print(f"  生成: {output_dir / 'thisyear.json'} ({len(filtered)} 件)")
+
+    # nextyear.json
+    next_year = today.year + 1
+    filtered = filter_next_year(holidays, today)
+    meta_next = {"source": SOURCE_URL, "generated_at": generated_at, "filter": f"nextyear ({next_year})"}
+    write_json(output_dir / "nextyear.json", filtered, meta_next)
+    print(f"  生成: {output_dir / 'nextyear.json'} ({len(filtered)} 件)")
 
     # index.html
     generate_index_html(DOCS_DIR)

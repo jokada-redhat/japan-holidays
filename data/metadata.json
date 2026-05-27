@@ -1,0 +1,7 @@
+{
+  "fetched_at": "2026-05-27T07:24:26.211182+00:00",
+  "source_url": "https://www8.cao.go.jp/chosei/shukujitsu/syukujitsu.csv",
+  "dataset_id": "cao_20190522_0002",
+  "catalog_api": "https://data.e-gov.go.jp/data/api/action/package_show?id=cao_20190522_0002",
+  "content_hash": "1e46d88b9e50fb045c7629475fa0c6534e420ac5c5e6af23a05b3f3ec1cb786a"
+}

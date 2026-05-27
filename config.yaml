@@ -1,0 +1,13 @@
+endpoints:
+  all: true
+  decade:
+    enabled: true
+    start: 2000
+  yearly:
+    enabled: true
+    start: 2020
+  last_n_years:
+    - 3
+    - 5
+  thisyear: true
+  nextyear: true

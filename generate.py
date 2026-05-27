@@ -190,13 +190,30 @@ def filter_next_year(holidays: list[dict], today: date) -> list[dict]:
     return [h for h in holidays if int(h["date"][:4]) == year]
 
 
-def get_decades(holidays: list[dict]) -> list[int]:
+def get_decades(holidays: list[dict], start: int = 0) -> list[int]:
     """データから年代（10年単位の開始年）を自動抽出し、ソート済みリストで返す。"""
     decades: set[int] = set()
     for h in holidays:
         year = int(h["date"][:4])
-        decades.add(year // 10 * 10)
+        decade = year // 10 * 10
+        if decade >= start:
+            decades.add(decade)
     return sorted(decades)
+
+
+def get_years(holidays: list[dict], start: int = 0) -> list[int]:
+    """データから年を自動抽出し、start 以降のソート済みリストで返す。"""
+    years: set[int] = set()
+    for h in holidays:
+        year = int(h["date"][:4])
+        if year >= start:
+            years.add(year)
+    return sorted(years)
+
+
+def filter_by_year(holidays: list[dict], year: int) -> list[dict]:
+    """指定年の祝日のみ返す。"""
+    return [h for h in holidays if int(h["date"][:4]) == year]
 
 
 def write_json(
@@ -278,6 +295,14 @@ def load_config(config_path: Path = CONFIG_FILE) -> dict:
         return {}
 
 
+def _endpoint_enabled(endpoints: dict, key: str, default: bool = True) -> bool:
+    """エンドポイント設定から有効/無効を判定する。"""
+    val = endpoints.get(key, default)
+    if isinstance(val, dict):
+        return val.get("enabled", default)
+    return bool(val)
+
+
 def cmd_generate(args: argparse.Namespace) -> None:
     """generate サブコマンドのエントリーポイント。"""
     if not CSV_FILE.exists():
@@ -291,47 +316,67 @@ def cmd_generate(args: argparse.Namespace) -> None:
     today = date.today()
     generated_at = today.isoformat()
     config = load_config()
-    last_n_years_list: list[int] = config.get("last_n_years", [3, 5])
+    endpoints = config.get("endpoints", {})
 
     output_dir = OUTPUT_DIR
     output_dir.mkdir(parents=True, exist_ok=True)
 
     # all.json
-    meta_all = {"source": SOURCE_URL, "generated_at": generated_at, "filter": "all"}
-    write_json(output_dir / "all.json", holidays, meta_all)
-    print(f"  生成: {output_dir / 'all.json'} ({len(holidays)} 件)")
+    if _endpoint_enabled(endpoints, "all"):
+        meta_all = {"source": SOURCE_URL, "generated_at": generated_at, "filter": "all"}
+        write_json(output_dir / "all.json", holidays, meta_all)
+        print(f"  生成: all.json ({len(holidays)} 件)")
 
-    # 年代別 JSON
-    decades = get_decades(holidays)
-    for decade in decades:
-        filtered = filter_by_year_range(holidays, decade, decade + 9)
-        filter_label = f"{decade}-{decade + 9}"
-        meta = {"source": SOURCE_URL, "generated_at": generated_at, "filter": filter_label}
-        filename = f"{decade}.json"
-        write_json(output_dir / filename, filtered, meta)
-        print(f"  生成: {output_dir / filename} ({len(filtered)} 件)")
+    # 年代別 JSON ({decade}s.json)
+    if _endpoint_enabled(endpoints, "decade"):
+        decade_conf = endpoints.get("decade", {})
+        decade_start = decade_conf.get("start", 0) if isinstance(decade_conf, dict) else 0
+        decades = get_decades(holidays, start=decade_start)
+        for decade in decades:
+            filtered = filter_by_year_range(holidays, decade, decade + 9)
+            filter_label = f"{decade}s"
+            meta = {"source": SOURCE_URL, "generated_at": generated_at, "filter": filter_label}
+            filename = f"{decade}s.json"
+            write_json(output_dir / filename, filtered, meta)
+            print(f"  生成: {filename} ({len(filtered)} 件)")
+
+    # 年別 JSON ({year}.json)
+    if _endpoint_enabled(endpoints, "yearly", default=False):
+        yearly_conf = endpoints.get("yearly", {})
+        yearly_start = yearly_conf.get("start", 0) if isinstance(yearly_conf, dict) else 0
+        years = get_years(holidays, start=yearly_start)
+        for year in years:
+            filtered = filter_by_year(holidays, year)
+            meta = {"source": SOURCE_URL, "generated_at": generated_at, "filter": str(year)}
+            filename = f"{year}.json"
+            write_json(output_dir / filename, filtered, meta)
+            print(f"  生成: {filename} ({len(filtered)} 件)")
 
     # lastNyears.json
-    for n in last_n_years_list:
-        filtered = filter_last_n_years(holidays, n, today)
-        filter_label = f"last{n}years"
-        meta = {"source": SOURCE_URL, "generated_at": generated_at, "filter": filter_label}
-        filename = f"last{n}years.json"
-        write_json(output_dir / filename, filtered, meta)
-        print(f"  生成: {output_dir / filename} ({len(filtered)} 件)")
+    last_n_years_list = endpoints.get("last_n_years", config.get("last_n_years", [3, 5]))
+    if isinstance(last_n_years_list, list) and last_n_years_list:
+        for n in last_n_years_list:
+            filtered = filter_last_n_years(holidays, n, today)
+            filter_label = f"last{n}years"
+            meta = {"source": SOURCE_URL, "generated_at": generated_at, "filter": filter_label}
+            filename = f"last{n}years.json"
+            write_json(output_dir / filename, filtered, meta)
+            print(f"  生成: {filename} ({len(filtered)} 件)")
 
     # thisyear.json
-    filtered = filter_this_year(holidays, today)
-    meta_this = {"source": SOURCE_URL, "generated_at": generated_at, "filter": f"thisyear ({today.year})"}
-    write_json(output_dir / "thisyear.json", filtered, meta_this)
-    print(f"  生成: {output_dir / 'thisyear.json'} ({len(filtered)} 件)")
+    if _endpoint_enabled(endpoints, "thisyear"):
+        filtered = filter_this_year(holidays, today)
+        meta_this = {"source": SOURCE_URL, "generated_at": generated_at, "filter": f"thisyear ({today.year})"}
+        write_json(output_dir / "thisyear.json", filtered, meta_this)
+        print(f"  生成: thisyear.json ({len(filtered)} 件)")
 
     # nextyear.json
-    next_year = today.year + 1
-    filtered = filter_next_year(holidays, today)
-    meta_next = {"source": SOURCE_URL, "generated_at": generated_at, "filter": f"nextyear ({next_year})"}
-    write_json(output_dir / "nextyear.json", filtered, meta_next)
-    print(f"  生成: {output_dir / 'nextyear.json'} ({len(filtered)} 件)")
+    if _endpoint_enabled(endpoints, "nextyear"):
+        next_year = today.year + 1
+        filtered = filter_next_year(holidays, today)
+        meta_next = {"source": SOURCE_URL, "generated_at": generated_at, "filter": f"nextyear ({next_year})"}
+        write_json(output_dir / "nextyear.json", filtered, meta_next)
+        print(f"  生成: nextyear.json ({len(filtered)} 件)")
 
     # index.html
     generate_index_html(DOCS_DIR)

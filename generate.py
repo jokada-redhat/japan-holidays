@@ -16,6 +16,7 @@ import io
 import json
 import sys
 import urllib.request
+from collections.abc import Callable
 from datetime import date, datetime, timezone
 from pathlib import Path
 
@@ -177,7 +178,7 @@ def filter_holidays(
 
 
 def _unique_years(
-    holidays: list[dict], *, group_fn: callable = lambda y: y, start: int = 0
+    holidays: list[dict], *, group_fn: Callable[[int], int] = lambda y: y, start: int = 0
 ) -> list[int]:
     """祝日データからユニークな年（または年代）を抽出する。"""
     return sorted({v for h in holidays if (v := group_fn(_holiday_year(h))) >= start})
@@ -281,7 +282,7 @@ def _build_jobs(
         jobs.append(("all.json", holidays, "all"))
 
     if _endpoint_enabled(endpoints, "decade"):
-        start = _conf_start(endpoints, "decade")
+        start = _conf_start(endpoints, "decade") // 10 * 10
         for d in _unique_years(holidays, group_fn=lambda y: y // 10 * 10, start=start):
             jobs.append((f"{d}s.json", filter_holidays(holidays, start=d, end=d + 9), f"{d}s"))
 

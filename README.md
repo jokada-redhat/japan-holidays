@@ -2,6 +2,8 @@
 
 日本の祝日一覧を返す静的 JSON API です。GitHub Pages を利用して配信します。
 
+https://jokada-redhat.github.io/japan-holidays/
+
 ## データソース
 
 内閣府が公開している「国民の祝日」CSV データを使用しています。

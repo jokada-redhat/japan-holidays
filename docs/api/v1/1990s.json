@@ -1,7 +1,7 @@
 {
   "source": "https://www8.cao.go.jp/chosei/shukujitsu/syukujitsu.csv",
   "generated_at": "2026-05-27",
-  "filter": "1990-1999",
+  "filter": "1990s",
   "count": 163,
   "holidays": [
     {

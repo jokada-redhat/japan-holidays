@@ -2,7 +2,7 @@ endpoints:
   all: true
   decade:
     enabled: true
-    start: 1950
+    start: 2000
   yearly:
     enabled: true
     start: 2020

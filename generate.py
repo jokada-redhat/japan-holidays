@@ -332,6 +332,8 @@ def cmd_generate(args: argparse.Namespace) -> None:
         decade_conf = endpoints.get("decade", {})
         decade_start = decade_conf.get("start", 0) if isinstance(decade_conf, dict) else 0
         decades = get_decades(holidays, start=decade_start)
+        if decade_start and not decades:
+            print(f"  警告: decade.start={decade_start} に該当するデータがありません")
         for decade in decades:
             filtered = filter_by_year_range(holidays, decade, decade + 9)
             filter_label = f"{decade}s"
@@ -341,10 +343,12 @@ def cmd_generate(args: argparse.Namespace) -> None:
             print(f"  生成: {filename} ({len(filtered)} 件)")
 
     # 年別 JSON ({year}.json)
-    if _endpoint_enabled(endpoints, "yearly", default=False):
+    if _endpoint_enabled(endpoints, "yearly"):
         yearly_conf = endpoints.get("yearly", {})
         yearly_start = yearly_conf.get("start", 0) if isinstance(yearly_conf, dict) else 0
         years = get_years(holidays, start=yearly_start)
+        if yearly_start and not years:
+            print(f"  警告: yearly.start={yearly_start} に該当するデータがありません")
         for year in years:
             filtered = filter_by_year(holidays, year)
             meta = {"source": SOURCE_URL, "generated_at": generated_at, "filter": str(year)}
@@ -356,6 +360,9 @@ def cmd_generate(args: argparse.Namespace) -> None:
     last_n_years_list = endpoints.get("last_n_years", config.get("last_n_years", [3, 5]))
     if isinstance(last_n_years_list, list) and last_n_years_list:
         for n in last_n_years_list:
+            if not isinstance(n, int) or n <= 0:
+                print(f"  警告: last_n_years の値 {n!r} は正の整数ではありません。スキップ。")
+                continue
             filtered = filter_last_n_years(holidays, n, today)
             filter_label = f"last{n}years"
             meta = {"source": SOURCE_URL, "generated_at": generated_at, "filter": filter_label}

@@ -27,31 +27,47 @@ uv sync
 ### データの取得と生成
 
 ```bash
-# 内閣府 CSV を取得
-python generate.py fetch
+# 取得と生成を一括実行
+python generate.py all
 
-# JSON ファイルを生成
-python generate.py generate
+# 個別に実行する場合
+python generate.py fetch     # 内閣府 CSV を取得
+python generate.py generate  # JSON ファイルを生成
 ```
 
 生成された JSON ファイルは `docs/api/v1/` ディレクトリに出力されます。
+
+## config.yaml による設定
+
+`config.yaml` で生成するエンドポイントや範囲を制御できます。
+
+| 設定項目 | 説明 |
+|---|---|
+| `endpoints` セクション | 各エンドポイント（decade, yearly, last_n_years, thisyear, nextyear）の有効/無効を制御 |
+| `decade.start` | 年代別ファイルの生成開始年代（例: 2000）|
+| `yearly.start` | 年別ファイルの生成開始年（例: 2020）|
+| `last_n_years` | 直近年数リストの定義（例: [3, 5]）|
 
 ## API エンドポイント一覧
 
 | パス | 内容 |
 |---|---|
 | `/api/v1/all.json` | 全祝日データ |
-| `/api/v1/{decade}.json` | 年代別（1950, 1960, ..., 2020）自動生成 |
-| `/api/v1/last{N}years.json` | 直近 N 年（config.yaml で定義、デフォルト: 3年, 5年） |
+| `/api/v1/{decade}s.json` | 年代別（2000s, 2010s, 2020s）config.yaml で範囲設定可 |
+| `/api/v1/{year}.json` | 年別（2020, 2021, ...）config.yaml で開始年設定可 |
+| `/api/v1/last{N}years.json` | 直近 N 年＋来年（config.yaml で定義、デフォルト: 3年, 5年） |
 | `/api/v1/thisyear.json` | 今年のみ |
+| `/api/v1/nextyear.json` | 来年のみ |
 
 ### 使用例
 
 ```
 https://<username>.github.io/japan-holidays/api/v1/all.json
-https://<username>.github.io/japan-holidays/api/v1/2020.json
+https://<username>.github.io/japan-holidays/api/v1/2020s.json
+https://<username>.github.io/japan-holidays/api/v1/2026.json
 https://<username>.github.io/japan-holidays/api/v1/last3years.json
 https://<username>.github.io/japan-holidays/api/v1/thisyear.json
+https://<username>.github.io/japan-holidays/api/v1/nextyear.json
 ```
 
 ## GitHub Pages 設定手順
